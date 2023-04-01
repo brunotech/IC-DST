@@ -1,10 +1,7 @@
 from transformers import pipeline, AutoTokenizer
 import torch
 
-device = -1
-if torch.cuda.is_available():
-    device = 0
-
+device = 0 if torch.cuda.is_available() else -1
 MAX_NEW_LENGTH = 100
 
 
@@ -30,9 +27,8 @@ def gpt_neo_completion(prompt):
                                    num_return_sequences=1)[0]['generated_text']
     generated_text = generated_text.replace(prompt, "")
     stop = ['--', '\n', ';', '#']
-    stop_index = len(generated_text)
-    for i, c in enumerate(generated_text):
-        if c in stop:
-            stop_index = i
-            break
+    stop_index = next(
+        (i for i, c in enumerate(generated_text) if c in stop),
+        len(generated_text),
+    )
     return generated_text[:stop_index]

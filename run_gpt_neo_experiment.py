@@ -81,7 +81,7 @@ def run(test_set, turn=-1, use_gold=False):
         if not use_gold:
             raise ValueError("can only evaluate particular turn when using gold context")
         selected_set = [d for d in test_set if len(d['dialog']['usr']) == turn + 1]
-    
+
     prediction_recorder = PreviousStateRecorder()  # state recorder
 
     # start experiment
@@ -90,6 +90,9 @@ def run(test_set, turn=-1, use_gold=False):
     n_correct = 0
     total_acc = 0
     total_f1 = 0
+
+    # codex completion
+    parse_error_count = 0
 
     for data_item in tqdm(selected_set):
         n_total += 1
@@ -106,15 +109,12 @@ def run(test_set, turn=-1, use_gold=False):
                 modified_item, k=NUM_EXAMPLE)
             prompt_text = get_prompt(
                 data_item, examples=examples, given_context=predicted_context)
-        
+
         # print the retrieved examples (without the sql table)
         print(prompt_text.replace(conversion(table_prompt), ""))
 
         # record the prompt
         data_item['prompt'] = prompt_text
-
-        # codex completion
-        parse_error_count = 0
 
         overlen_flag = True
         while overlen_flag:
@@ -157,7 +157,7 @@ def run(test_set, turn=-1, use_gold=False):
 
         # some slots may contain multiple values
         all_slot_values = {k: v.split('|')[0] for k, v in all_slot_values.items()}
-        
+
         # record current turn prediction
         prediction_recorder.add_state(data_item, all_slot_values)
 
@@ -186,7 +186,7 @@ def run(test_set, turn=-1, use_gold=False):
         else:
             result_dict[data_item['turn_id']].append(0)
             print("\n=====================wrong!=======================")
-        
+
         print("\n")
 
     print(f"correct {n_correct}/{n_total}  =  {n_correct / n_total}")

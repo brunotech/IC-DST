@@ -5,7 +5,7 @@ from collections import OrderedDict
 def sql_pred_parse(pred):
     # parse sql results and fix general errors
 
-    pred = " * FROM" + pred
+    pred = f" * FROM{pred}"
 
     # fix for no states
     if pred == " * FROM  WHERE ":
@@ -24,18 +24,18 @@ def sql_pred_parse(pred):
     if "AS" in pred:
         as_indices = [i for i, x in enumerate(sql_toks) if x == "AS"]
 
-        table_name_map_dict = {}
-        for indice in as_indices:
-            table_name_map_dict[sql_toks[indice + 1].replace(",", "")] = sql_toks[indice - 1]
-
+        table_name_map_dict = {
+            sql_toks[indice + 1].replace(",", ""): sql_toks[indice - 1]
+            for indice in as_indices
+        }
         slot_values_str = str(stmt.tokens[-1]).replace("_", " ").replace("""'""", "").replace("WHERE ", "")
         for operator in operators:
             slot_values_str = slot_values_str.replace(operator, "-")
         slot_values = slot_values_str.split(" AND ")
 
         for sv in slot_values:
-            for t_ in table_name_map_dict.keys():
-                sv = sv.replace(t_ + ".", table_name_map_dict[t_] + "-")
+            for t_ in table_name_map_dict:
+                sv = sv.replace(f"{t_}.", f"{table_name_map_dict[t_]}-")
             pred_slot_values.append(sv)
     else:
 
@@ -46,7 +46,9 @@ def sql_pred_parse(pred):
             slot_values_str = slot_values_str.replace(operator, "-")
         slot_values = slot_values_str.split(" AND ")
 
-        pred_slot_values.extend([table_name + "-" + sv for sv in slot_values if slot_values != ['']])
+        pred_slot_values.extend(
+            [f"{table_name}-{sv}" for sv in slot_values if slot_values != ['']]
+        )
 
     pred_slot_values = {'-'.join(sv_pair.split('-')[:-1]): sv_pair.split('-')[-1] for sv_pair in pred_slot_values}
 
@@ -69,7 +71,7 @@ def sv_dict_to_string(svs, sep=' ', sort=True):
 def slot_values_to_seq_sql(original_slot_values, single_answer=False):
     sql_str = ""
     tables = OrderedDict()
-    col_value = dict()
+    col_value = {}
 
     # add '_' in SQL columns
     slot_values = {}
@@ -95,23 +97,22 @@ def slot_values_to_seq_sql(original_slot_values, single_answer=False):
             value = value.split('|')[0]
         col_value[slot] = value
 
+    where_clause = []
     # When there is only one table
     if len(tables.keys()) == 1:
-        where_clause = []
         table = list(tables.keys())[0]
-        for col in tables[table]:
-            where_clause.append("{} = {}".format(col, col_value["{}-{}".format(table, col)]))
-        sql_str = "SELECT * FROM {} WHERE {}".format(table, " AND ".join(where_clause))
-    # When there are more than one table
+        where_clause.extend(
+            f'{col} = {col_value[f"{table}-{col}"]}' for col in tables[table]
+        )
+        return f'SELECT * FROM {table} WHERE {" AND ".join(where_clause)}'
     else:
         # We observed that Codex has variety in the table short names, here we just use a simple version.
         from_clause = []
-        where_clause = []
         for i, table in enumerate(tables.keys()):
-            t_i = "t{}".format(i + 1)
-            from_clause.append("{} AS {}".format(table, t_i))
-            for col in tables[table]:
-                where_clause.append("{}.{} = {}".format(t_i, col, col_value["{}-{}".format(table, col)]))
-        sql_str = "SELECT * FROM {} WHERE {}".format(", ".join(from_clause), " AND ".join(where_clause))
-
-    return sql_str
+            t_i = f"t{i + 1}"
+            from_clause.append(f"{table} AS {t_i}")
+            where_clause.extend(
+                f'{t_i}.{col} = {col_value[f"{table}-{col}"]}'
+                for col in tables[table]
+            )
+        return f'SELECT * FROM {", ".join(from_clause)} WHERE {" AND ".join(where_clause)}'

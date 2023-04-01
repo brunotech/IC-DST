@@ -7,10 +7,7 @@ import torch
 from transformers import GPT2TokenizerFast
 from CodeGen.jaxformer.hf.codegen.modeling_codegen import CodeGenForCausalLM
 
-device = -1
-if torch.cuda.is_available():
-    device = 0
-
+device = 0 if torch.cuda.is_available() else -1
 MAX_NEW_LENGTH = 100
 MAX_LENGTH = 2048
 
@@ -162,10 +159,7 @@ def truncate(completion):
 
     terminals_pos = [pos for pos in [find_re(
         completion, terminal, start_pos) for terminal in terminals] if pos != -1]
-    if len(terminals_pos) > 0:
-        return completion[:min(terminals_pos)]
-    else:
-        return completion
+    return completion[:min(terminals_pos)] if terminals_pos else completion
 
 
 def test_truncate():
@@ -205,9 +199,8 @@ def codegen_completion(prompt):
     generated_text = truncate(completion)
 
     stop = ['--', '\n', ';', '#']
-    stop_index = len(generated_text)
-    for i, c in enumerate(generated_text):
-        if c in stop:
-            stop_index = i
-            break
+    stop_index = next(
+        (i for i, c in enumerate(generated_text) if c in stop),
+        len(generated_text),
+    )
     return generated_text[:stop_index]

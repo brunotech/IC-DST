@@ -49,27 +49,26 @@ def sample_process_dataset(data, ratio=1.0, seed=88):
                 if value != "none":
                     slot_values[slot] = value
 
-            turn_slot_values = {}
-            for s,v in slot_values.items():
-                # newly added slot
-                if s not in last_slot_values:
-                    turn_slot_values[s] = v
-                
-                # changed slot
-                elif slot_values[s] != last_slot_values[s]:
-                    turn_slot_values[s] = v
-                
+            turn_slot_values = {
+                s: v
+                for s, v in slot_values.items()
+                if s not in last_slot_values
+                or slot_values[s] != last_slot_values[s]
+            }
             # deleted slot
             for s,v in last_slot_values.items():
                 if s not in slot_values:
                     turn_slot_values[s] = "[DELETE]"    
 
-            processed_turn = {"ID": dial_id, "turn_id": turn_id,
-                              "domains": domains}
-            processed_turn["dialog"] = {"sys": sys.copy(), "usr": usr.copy()}
-            processed_turn["slot_values"] = slot_values.copy()
-            processed_turn["turn_slot_values"] = turn_slot_values.copy()
-            processed_turn["last_slot_values"] = last_slot_values.copy()
+            processed_turn = {
+                "ID": dial_id,
+                "turn_id": turn_id,
+                "domains": domains,
+                "dialog": {"sys": sys.copy(), "usr": usr.copy()},
+                "slot_values": slot_values.copy(),
+                "turn_slot_values": turn_slot_values.copy(),
+                "last_slot_values": last_slot_values.copy(),
+            }
             processed_turns.append(processed_turn)
 
             # update context

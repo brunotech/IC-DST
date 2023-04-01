@@ -31,9 +31,9 @@ IGNORE_KEYS_IN_GOAL = ['eod', 'topic', 'messageLen', 'message']
 
 fin = open('utils/mapping.pair','r')
 replacements = []
-for line in fin.readlines():
+for line in fin:
     tok_from, tok_to = line.replace('\n', '').split('\t')
-    replacements.append((' ' + tok_from + ' ', ' ' + tok_to + ' '))
+    replacements.append((f' {tok_from} ', f' {tok_to} '))
 
 
 def is_ascii(s):
@@ -50,10 +50,10 @@ def insertSpace(token, text):
             sidx += 1
             continue
         if text[sidx - 1] != ' ':
-            text = text[:sidx] + ' ' + text[sidx:]
+            text = f'{text[:sidx]} {text[sidx:]}'
             sidx += 1
         if sidx + len(token) < len(text) and text[sidx + len(token)] != ' ':
-            text = text[:sidx + 1] + ' ' + text[sidx + 1:]
+            text = f'{text[:sidx + 1]} {text[sidx + 1:]}'
         sidx += 1
     return text
 
@@ -70,9 +70,9 @@ def normalize(text, clean_value=True):
     text = re.sub(r"guesthouse", "guest house", text)
 
     if clean_value:
-        # normalize phone number
-        ms = re.findall('\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4,5})', text)
-        if ms:
+        if ms := re.findall(
+            '\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4,5})', text
+        ):
             sidx = 0
             for m in ms:
                 sidx = text.find(m[0], sidx)
@@ -81,10 +81,10 @@ def normalize(text, clean_value=True):
                 eidx = text.find(m[-1], sidx) + len(m[-1])
                 text = text.replace(text[sidx:eidx], ''.join(m))
 
-        # normalize postcode
-        ms = re.findall('([a-z]{1}[\. ]?[a-z]{1}[\. ]?\d{1,2}[, ]+\d{1}[\. ]?[a-z]{1}[\. ]?[a-z]{1}|[a-z]{2}\d{2}[a-z]{2})',
-                        text)
-        if ms:
+        if ms := re.findall(
+            '([a-z]{1}[\. ]?[a-z]{1}[\. ]?\d{1,2}[, ]+\d{1}[\. ]?[a-z]{1}[\. ]?[a-z]{1}|[a-z]{2}\d{2}[a-z]{2})',
+            text,
+        ):
             sidx = 0
             for m in ms:
                 sidx = text.find(m, sidx)
@@ -122,7 +122,7 @@ def normalize(text, clean_value=True):
     text = re.sub('\'\s', ' ', text)
     text = re.sub('\s\'', ' ', text)
     for fromx, tox in replacements:
-        text = ' ' + text + ' '
+        text = f' {text} '
         text = text.replace(fromx, tox)[1:-1]
 
     # remove multiple spaces
@@ -186,12 +186,9 @@ def getDialogueAct(filename, data, data2, idx, idx_acts):
             #     acts.append(temp + [a[0].lower()])
 
             if k.split('-')[1].lower() == 'request':
-                for a in turn[k]:
-                    acts.append(a[0].lower())
+                acts.extend(a[0].lower() for a in turn[k])
             elif k.split('-')[1].lower() == 'inform':
-                for a in turn[k]:
-                    acts.append([a[0].lower(), normalize(a[1].lower(), False)])
-
+                acts.extend([a[0].lower(), normalize(a[1].lower(), False)] for a in turn[k])
     return acts
 
 
@@ -208,18 +205,24 @@ def get_summary_bstate(bstate, get_domain=False):
         #print(domain,len(bstate[domain]['book'].keys()))
         for slot in sorted(bstate[domain]['book'].keys()):
             if slot == 'booked':
-                if len(bstate[domain]['book']['booked'])!=0:
+                if len(bstate[domain]['book']['booked']) == 0:
+                    booking.append(0)
+                else:
                     booking.append(1)
                     # summary_bvalue.append("book {} {}:{}".format(domain, slot, "Yes"))
-                else:
-                    booking.append(0)
+            elif bstate[domain]['book'][slot] != "":
+                booking.append(1)
+                bstate[domain]['book'][slot] = re.sub('[<>]', '|', bstate[domain]['book'][slot])
+                summary_bvalue.append(
+                    [
+                        f"{domain}-book {slot.strip().lower()}",
+                        normalize(
+                            bstate[domain]['book'][slot].strip().lower(), False
+                        ),
+                    ]
+                )
             else:
-                if bstate[domain]['book'][slot] != "":
-                    booking.append(1)
-                    bstate[domain]['book'][slot] = re.sub('[<>]', '|', bstate[domain]['book'][slot])
-                    summary_bvalue.append(["{}-book {}".format(domain, slot.strip().lower()), normalize(bstate[domain]['book'][slot].strip().lower(), False)]) #(["book", domain, slot, bstate[domain]['book'][slot]])
-                else:
-                    booking.append(0)
+                booking.append(0)
         if domain == 'train':
             if 'people' not in bstate[domain]['book'].keys():
                 booking.append(0)
@@ -233,17 +236,17 @@ def get_summary_bstate(bstate, get_domain=False):
                 slot_enc[0] = 1
             elif bstate[domain]['semi'][slot] in ['dont care', 'dontcare', "don't care", "do not care"]:
                 slot_enc[1] = 1
-                summary_bvalue.append(["{}-{}".format(domain, slot.strip().lower()), "dontcare"]) #(["semi", domain, slot, "dontcare"])
+                summary_bvalue.append([f"{domain}-{slot.strip().lower()}", "dontcare"])
             elif bstate[domain]['semi'][slot]:
                 bstate[domain]['semi'][slot] = re.sub('[<>]', '|', bstate[domain]['semi'][slot])
-                
+
                 # unify ontology of 2.1 and 2.4: conerthall, nightclub
                 normalized_value = normalize(bstate[domain]['semi'][slot].strip().lower(), False)
                 if normalized_value == 'night club':
                     normalized_value = 'nightclub'
                 if normalized_value == 'concerthall':
                     normalized_value = 'concert hall'
-                summary_bvalue.append(["{}-{}".format(domain, slot.strip().lower()), normalized_value]) #(["semi", domain, slot, bstate[domain]['semi'][slot]])
+                summary_bvalue.append([f"{domain}-{slot.strip().lower()}", normalized_value])
             if slot_enc != [0, 0, 0]:
                 domain_active = True
             summary_bstate += slot_enc
@@ -257,10 +260,7 @@ def get_summary_bstate(bstate, get_domain=False):
 
     #print(len(summary_bstate))
     assert len(summary_bstate) == 94
-    if get_domain:
-        return active_domain
-    else:
-        return summary_bstate, summary_bvalue
+    return active_domain if get_domain else (summary_bstate, summary_bvalue)
 
 
 def analyze_dialogue(dialogue, maxlen):
@@ -271,8 +271,7 @@ def analyze_dialogue(dialogue, maxlen):
         #print path
         print('odd # of turns')
         return None  # odd number of turns, wrong dialogue
-    d_pp = {}
-    d_pp['goal'] = d['goal']  # for now we just copy the goal
+    d_pp = {'goal': d['goal']}
     usr_turns = []
     sys_turns = []
     # last_bvs = []
@@ -280,17 +279,13 @@ def analyze_dialogue(dialogue, maxlen):
         if len(d['log'][i]['text'].split()) > maxlen:
             # print('too long')
             return None  # too long sentence, wrong dialogue
+        text = d['log'][i]['text']
+        if not is_ascii(text):
+            # print('not ascii')
+            return None
         if i % 2 == 0:  # usr turn
-            text = d['log'][i]['text']
-            if not is_ascii(text):
-                # print('not ascii')
-                return None
             usr_turns.append(d['log'][i])
         else:  # sys turn
-            text = d['log'][i]['text']
-            if not is_ascii(text):
-                # print('not ascii')
-                return None
             belief_summary, belief_value_summary = get_summary_bstate(d['log'][i]['metadata'])
             d['log'][i]['belief_summary'] = str(belief_summary)
             d['log'][i]['belief_value_summary'] = belief_value_summary
@@ -303,7 +298,6 @@ def analyze_dialogue(dialogue, maxlen):
 
 def get_dial(dialogue):
     """Extract a dialogue from the file"""
-    dial = []
     d_orig = analyze_dialogue(dialogue, MAX_LENGTH)  # max turn len is 50 words
     if d_orig is None:
         return None
@@ -312,32 +306,39 @@ def get_dial(dialogue):
     sys_a = [t['dialogue_acts'] for t in d_orig['sys_log']]
     bvs = [t['belief_value_summary'] for t in d_orig['sys_log']]
     domain = [t['domain'] for t in d_orig['usr_log']]
-    for item in zip(usr, sys, sys_a, domain, bvs):
-        dial.append({'usr':item[0],'sys':item[1], 'sys_a':item[2], 'domain':item[3], 'bvs':item[4]})
-    return dial
+    return [
+        {
+            'usr': item[0],
+            'sys': item[1],
+            'sys_a': item[2],
+            'domain': item[3],
+            'bvs': item[4],
+        }
+        for item in zip(usr, sys, sys_a, domain, bvs)
+    ]
 
 
 def loadData(args):
     data_url = os.path.join(args.main_dir, "data.json")
-    if args.mwz_ver == '2.4':
-        dataset_url = "https://raw.githubusercontent.com/smartyfh/MultiWOZ2.4/main/data/MULTIWOZ2.4.zip"
-    elif args.mwz_ver == '2.1':
+    if args.mwz_ver == '2.1':
         dataset_url = "https://www.repository.cam.ac.uk/bitstream/handle/1810/294507/MULTIWOZ2.1.zip?sequence=1&isAllowed=y"
+    elif args.mwz_ver == '2.4':
+        dataset_url = "https://raw.githubusercontent.com/smartyfh/MultiWOZ2.4/main/data/MULTIWOZ2.4.zip"
     else:
         dataset_url = "https://www.repository.cam.ac.uk/bitstream/handle/1810/280608/MULTIWOZ2.zip?sequence=3&isAllowed=y"
     if not os.path.exists(args.main_dir):
         os.makedirs(args.main_dir)
 
     if not os.path.exists(data_url):
-        print("Downloading and unzipping the MultiWOZ %s dataset" % args.mwz_ver)
+        print(f"Downloading and unzipping the MultiWOZ {args.mwz_ver} dataset")
         resp = urllib.request.urlopen(dataset_url)
         zip_ref = ZipFile(BytesIO(resp.read()))
         zip_ref.extractall(args.main_dir)
         zip_ref.close()
-        if args.mwz_ver == '2.4':
-            dir_name = 'MULTIWOZ2.4'
-        elif args.mwz_ver == '2.1':
+        if args.mwz_ver == '2.1':
             dir_name = 'MULTIWOZ2.1'
+        elif args.mwz_ver == '2.4':
+            dir_name = 'MULTIWOZ2.4'
         else:
             dir_name = 'MULTIWOZ2 2'
         shutil.copy(os.path.join(args.main_dir, dir_name, 'data.json'), args.main_dir)
@@ -349,15 +350,11 @@ def loadData(args):
 
 def getDomain(idx, log, domains, last_domain):
     if idx == 1:
-        active_domains = get_summary_bstate(log[idx]["metadata"], True) 
-        crnt_doms = active_domains[0] if len(active_domains)!=0 else domains[0]
-        return crnt_doms
+        active_domains = get_summary_bstate(log[idx]["metadata"], True)
+        return active_domains[0] if len(active_domains)!=0 else domains[0]
     else:
         ds_diff = get_ds_diff(log[idx-2]["metadata"], log[idx]["metadata"])
-        if len(ds_diff.keys()) == 0: # no clues from dialog states
-            crnt_doms = last_domain
-        else:
-            crnt_doms = list(ds_diff.keys())
+        crnt_doms = last_domain if len(ds_diff.keys()) == 0 else list(ds_diff.keys())
         # print(crnt_doms)
         return crnt_doms[0] # How about multiple domains in one sentence senario ?
 
@@ -378,7 +375,7 @@ def get_ds_diff(prev_d, crnt_d):
 def createData(args):
     # download the data
     loadData(args)
-    
+
     # create dictionary of delexicalied values that then we will search against, order matters here!
     # dic = delexicalize.prepareSlotValuesIndependent()
     delex_data = {}
@@ -393,11 +390,11 @@ def createData(args):
 
         dialogue = data[dialogue_name]
 
-        domains = []
-        for dom_k, dom_v in dialogue['goal'].items():
-            if dom_v and dom_k not in IGNORE_KEYS_IN_GOAL: # check whether contains some goal entities
-                domains.append(dom_k)
-
+        domains = [
+            dom_k
+            for dom_k, dom_v in dialogue['goal'].items()
+            if dom_v and dom_k not in IGNORE_KEYS_IN_GOAL
+        ]
         idx_acts = 1
         last_domain, last_slot_fill = "", []
         for idx, turn in enumerate(dialogue['log']):
@@ -417,11 +414,11 @@ def createData(args):
 
             # FIXING delexicalization:
             dialogue = fixDelex(dialogue_name, dialogue, data2, idx, idx_acts)
-        
+
         delex_data[dialogue_name] = dialogue
 
-        # if didx > 10:
-        #     break
+            # if didx > 10:
+            #     break
 
     # with open('data/multi-woz/woz2like_data.json', 'w') as outfile:
     #     json.dump(delex_data, outfile)
@@ -458,62 +455,60 @@ def divideData(data,args):
     """Given test and validation sets, divide
     the data for three different sets"""
     os.makedirs(args.target_path,exist_ok=True)
-    
+
     copyfile(os.path.join(args.main_dir,'ontology.json'), os.path.join(args.target_path,'ontology.json'))
-    
+
     testListFile = []
-    fin = open(os.path.join(args.main_dir,'testListFile.json'), 'r')
-    for line in fin:
-        testListFile.append(line[:-1])
-    fin.close()
-
+    with open(os.path.join(args.main_dir,'testListFile.json'), 'r') as fin:
+        testListFile.extend(line[:-1] for line in fin)
     valListFile = []
-    fin = open(os.path.join(args.main_dir,'valListFile.json'), 'r')
-    for line in fin:
-        valListFile.append(line[:-1])
-    fin.close()
-
+    with open(os.path.join(args.main_dir,'valListFile.json'), 'r') as fin:
+        valListFile.extend(line[:-1] for line in fin)
     trainListFile = open(os.path.join(args.target_path,'trainListFile'), 'w')
 
     test_dials = []
     val_dials = []
     train_dials = []
-        
+
     # dictionaries
     word_freqs_usr = OrderedDict()
     word_freqs_sys = OrderedDict()
 
     count_train, count_val, count_test = 0, 0, 0
-    
+
     for dialogue_name in data:
         # print dialogue_name
         dial_item = data[dialogue_name]
-        domains = []
-        for dom_k, dom_v in dial_item['goal'].items():
-            if dom_v and dom_k not in IGNORE_KEYS_IN_GOAL: # check whether contains some goal entities
-                domains.append(dom_k)
-
-        dial = get_dial(data[dialogue_name])
-        if dial:
-            dialogue = {}
-            dialogue['dialogue_idx'] = dialogue_name
-            dialogue['domains'] = list(set(domains)) #list(set([d['domain'] for d in dial]))
+        domains = [
+            dom_k
+            for dom_k, dom_v in dial_item['goal'].items()
+            if dom_v and dom_k not in IGNORE_KEYS_IN_GOAL
+        ]
+        if dial := get_dial(data[dialogue_name]):
             last_bs = []
-            dialogue['dialogue'] = []
-
+            dialogue = {
+                'dialogue_idx': dialogue_name,
+                'domains': list(set(domains)),
+                'dialogue': [],
+            }
             for turn_i, turn in enumerate(dial):
                 # usr, usr_o, sys, sys_o, sys_a, domain
-                turn_dialog = {}
-                turn_dialog['system_transcript'] = dial[turn_i-1]['sys'] if turn_i > 0 else ""
-                turn_dialog['turn_idx'] = turn_i
-                turn_dialog['belief_state'] = [{"slots": [s], "act": "inform"} for s in turn['bvs']]
-                turn_dialog['turn_label'] = [bs["slots"][0] for bs in turn_dialog['belief_state'] if bs not in last_bs] 
+                turn_dialog = {
+                    'system_transcript': dial[turn_i - 1]['sys']
+                    if turn_i > 0
+                    else "",
+                    'turn_idx': turn_i,
+                    'belief_state': [
+                        {"slots": [s], "act": "inform"} for s in turn['bvs']
+                    ],
+                }
+                turn_dialog['turn_label'] = [bs["slots"][0] for bs in turn_dialog['belief_state'] if bs not in last_bs]
                 turn_dialog['transcript'] = turn['usr']
                 turn_dialog['system_acts'] = dial[turn_i-1]['sys_a'] if turn_i > 0 else []
                 turn_dialog['domain'] = turn['domain']
                 last_bs = turn_dialog['belief_state']
                 dialogue['dialogue'].append(turn_dialog)
-            
+
             if dialogue_name in testListFile:
                 test_dials.append(dialogue)
                 count_test += 1
@@ -525,7 +520,9 @@ def divideData(data,args):
                 train_dials.append(dialogue)
                 count_train += 1
 
-    print("# of dialogues: Train {}, Val {}, Test {}".format(count_train, count_val, count_test))
+    print(
+        f"# of dialogues: Train {count_train}, Val {count_val}, Test {count_test}"
+    )
 
     # save all dialogues
     with open(os.path.join(args.target_path, 'dev_dials.json'), 'w') as f:

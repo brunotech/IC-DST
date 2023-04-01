@@ -66,14 +66,14 @@ class EmbeddingRetriever:
         return {k:v for k,v in embs.items() if k in selected_keys}
     
     def random_sample_selection_by_dialog(self, embs, ratio=0.1):
-        dial_ids = set([turn_label.split('_')[0] for turn_label in embs.keys()])
+        dial_ids = {turn_label.split('_')[0] for turn_label in embs.keys()}
         n_selected = int(len(dial_ids)*ratio)
         print(f"randomly select {ratio} of dialogs, i.e. {n_selected} dialogs")
         selected_dial_ids = random.sample(dial_ids, n_selected)
         return {k:v for k,v in embs.items() if k.split('_')[0] in selected_dial_ids}
 
     def pre_assigned_sample_selection(self, embs, examples):
-        selected_dial_ids = set([dial['ID'] for dial in examples])
+        selected_dial_ids = {dial['ID'] for dial in examples}
         return {k:v for k,v in embs.items() if k.split('_')[0] in selected_dial_ids}
 
     
@@ -152,9 +152,11 @@ class EmbeddingRetriever:
 
     def label_to_nearest_labels(self, label, k=5):
         data_item = self.label_to_data_item(label)
-        return [l for l in self.retriever.topk_nearest_distinct_dialogs(
-                    self.data_item_to_embedding(data_item), k=k)
-                ][::-1]
+        return list(
+            self.retriever.topk_nearest_distinct_dialogs(
+                self.data_item_to_embedding(data_item), k=k
+            )
+        )[::-1]
     
     def random_examples(self, data_item, k=5):
         return [self.label_to_data_item(l)

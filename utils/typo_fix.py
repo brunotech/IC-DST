@@ -31,7 +31,7 @@ def typo_fix(slot_values, ontology, version="2.1"):
         # fix 's
         value = value.replace(' s ', 's ')
         if value.endswith(' s'):
-            value = value[:-2] + 's'
+            value = f'{value[:-2]}s'
 
         # fix typo words
         general_typos = {'fen ditton': 'fenditton',
@@ -67,7 +67,7 @@ def typo_fix(slot_values, ontology, version="2.1"):
             value_replacement['portuguese'] = 'portugese'
             value_replacement['museum of archaeology and anthropology'] = 'museum of archaelogy and anthropology'
 
-        if version == "2.4":
+        elif version == "2.4":
             value_replacement['portugese'] = 'portuguese'
             value_replacement['museum of archaelogy and anthropology'] = 'museum of archaeology and anthropology'
 
@@ -77,7 +77,7 @@ def typo_fix(slot_values, ontology, version="2.1"):
 
         # time format fix  9:00 -> 09:00
         if ':' in value and len(value) < 5:
-            value = '0' + value
+            value = f'0{value}'
 
         if slot in named_entity_slots:
             value = check_prefix_suffix(value, ontology[slot])

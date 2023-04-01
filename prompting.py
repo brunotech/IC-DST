@@ -115,10 +115,7 @@ def get_prompt(data_item, examples, given_context=None, n_examples=None):
 
     prompt_text = f"{conversion(table_prompt)}\n"
 
-    max_n_examples = len(examples)
-    if n_examples is not None:
-        max_n_examples = n_examples
-
+    max_n_examples = n_examples if n_examples is not None else len(examples)
     # in case for zero-shot learning
     if max_n_examples > 0:
         for example_id, example in enumerate(examples[-max_n_examples:]):

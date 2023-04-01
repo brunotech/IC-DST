@@ -11,10 +11,9 @@ def compute_acc(gold, pred, n_slot=30):
         if g not in pred:
             miss_gold += 1
             miss_slot.append(g.rsplit("-", 1)[0])
-    wrong_pred = 0
-    for p in pred:
-        if p not in gold and p.rsplit("-", 1)[0] not in miss_slot:
-            wrong_pred += 1
+    wrong_pred = sum(
+        p not in gold and p.rsplit("-", 1)[0] not in miss_slot for p in pred
+    )
     ACC_TOTAL = n_slot
     ACC = n_slot - miss_gold - wrong_pred
     ACC = ACC / float(ACC_TOTAL)
@@ -44,10 +43,7 @@ def compute_prf(gold, pred):
         F1 = 2 * precision * recall / \
             float(precision + recall) if (precision+recall) != 0 else 0
     else:
-        if len(pred) == 0:
-            precision, recall, F1, count = 1, 1, 1, 1
-        else:
-            precision, recall, F1, count = 0, 0, 0, 1
+        precision, recall, F1, count = (1, 1, 1, 1) if len(pred) == 0 else (0, 0, 0, 1)
     return F1, recall, precision, count
 
 

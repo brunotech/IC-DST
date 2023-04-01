@@ -20,10 +20,7 @@ def compute_prf(gold, pred):
         F1 = 2 * precision * recall / \
             float(precision + recall) if (precision+recall) != 0 else 0
     else:
-        if len(pred) == 0:
-            precision, recall, F1, count = 1, 1, 1, 1
-        else:
-            precision, recall, F1, count = 0, 0, 0, 1
+        precision, recall, F1, count = (1, 1, 1, 1) if len(pred) == 0 else (0, 0, 0, 1)
     return float(F1)
 
 
@@ -48,10 +45,7 @@ def compute_sv_sim(gold, pred, onescore=True):
     pred = ['-'.join(g.split('-')[:2]) for g in pred]
     slot_sim = compute_prf(gold, pred)
 
-    if onescore:
-        return value_sim + slot_sim - 1
-    else:
-        return value_sim, slot_sim
+    return value_sim + slot_sim - 1 if onescore else (value_sim, slot_sim)
 
 
 def evaluate_single_query_ex(turn, retriever):

@@ -50,12 +50,11 @@ def eval(running_log, test_set, turn=-1, use_gold=False):
 
     for data_item, label_item in tqdm(zip(running_log, test_set)):
         
-        if turn >= 0:
-            if data_item['turn_id'] != turn:
-                continue
-        
+        if turn >= 0 and data_item['turn_id'] != turn:
+            continue
+
         n_total += 1
-        
+
         completion = data_item['completion']
 
         # aggregate the prediction and the history states

@@ -36,24 +36,25 @@ class RetrievalEvaluator(SentenceEvaluator):
         self.name = name
         self.batch_size = batch_size
         if show_progress_bar is None:
-            show_progress_bar = (logger.getEffectiveLevel() == logging.INFO or logger.getEffectiveLevel() == logging.DEBUG)
+            show_progress_bar = logger.getEffectiveLevel() in [logging.INFO, logging.DEBUG]
         self.show_progress_bar = show_progress_bar
 
-        self.csv_file = "retrieval_evaluation" + ("_"+name if name else '') + "_results.csv"
+        self.csv_file = (
+            "retrieval_evaluation" + (f"_{name}" if name else '') + "_results.csv"
+        )
         self.csv_headers = ["epoch", "steps",
                             "turnsv_score", "turns_score","allsv_score", "alls_score"]
 
     def __call__(self, model, output_path: str = None, epoch: int = -1, steps: int = -1) -> float:
 
-        if epoch != -1:
-            if steps == -1:
-                out_txt = f" after epoch {epoch}:"
-            else:
-                out_txt = f" in epoch {epoch} after {steps} steps:"
-        else:
+        if epoch == -1:
             out_txt = ":"
 
-        logger.info("Evaluation of the model on " + self.name + " dataset" + out_txt)
+        elif steps == -1:
+            out_txt = f" after epoch {epoch}:"
+        else:
+            out_txt = f" in epoch {epoch} after {steps} steps:"
+        logger.info(f"Evaluation of the model on {self.name} dataset{out_txt}")
 
         scores = self.compute_metrices(model)
 
@@ -140,25 +141,27 @@ class RetrievalEvaluatorAll(SentenceEvaluator):
         self.name = name
         self.batch_size = batch_size
         if show_progress_bar is None:
-            show_progress_bar = (logger.getEffectiveLevel(
-            ) == logging.INFO or logger.getEffectiveLevel() == logging.DEBUG)
+            show_progress_bar = logger.getEffectiveLevel() in [
+                logging.INFO,
+                logging.DEBUG,
+            ]
         self.show_progress_bar = show_progress_bar
 
-        self.csv_file = "retrieval_evaluation" + \
-            ("_"+name if name else '') + "_results.csv"
+        self.csv_file = (
+            "retrieval_evaluation" + (f"_{name}" if name else '')
+        ) + "_results.csv"
         self.csv_headers = ["epoch", "steps",
                             "turnsv_score", "turns_score", "allsv_score", "alls_score"]
 
     def __call__(self, model, output_path: str = None, epoch: int = -1, steps: int = -1) -> float:
 
-        if epoch != -1:
-            if steps == -1:
-                out_txt = f" after epoch {epoch}:"
-            else:
-                out_txt = f" in epoch {epoch} after {steps} steps:"
-        else:
+        if epoch == -1:
             out_txt = ":"
 
+        elif steps == -1:
+            out_txt = f" after epoch {epoch}:"
+        else:
+            out_txt = f" in epoch {epoch} after {steps} steps:"
         logger.info("Evaluation of the model on " +
                     self.name + " dataset" + out_txt)
 

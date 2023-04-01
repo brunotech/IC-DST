@@ -109,9 +109,7 @@ class MWDataset:
                     self.similarity_matrix[j, i] = self.similarity_matrix[i, j]
 
     def important_value_to_string(self, slot, value):
-        if value in ["none", "dontcare"]:
-            return f"{slot}{value}"  # special slot
-        return f"{slot}-{value}"
+        return f"{slot}{value}" if value in ["none", "dontcare"] else f"{slot}-{value}"
 
 
 class MWContrastiveDataloader:
@@ -207,9 +205,10 @@ mw_train_loader = MWContrastiveDataloader(
 # store embedding function
 def store_embed(dataset, output_filename):
     embeddings = model.encode(dataset.turn_utts, convert_to_numpy=True)
-    output = {}
-    for i in tqdm(range(len(embeddings))):
-        output[dataset.turn_labels[i]] = embeddings[i:i+1]
+    output = {
+        dataset.turn_labels[i]: embeddings[i : i + 1]
+        for i in tqdm(range(len(embeddings)))
+    }
     np.save(output_filename, output)
     return
 

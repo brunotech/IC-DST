@@ -31,7 +31,4 @@ class PreviousStateRecorder:
     def state_retrieval(self, data_item):
         dialog_ID = data_item['ID']
         turn_id = data_item['turn_id']
-        if turn_id == 0:
-            return {}
-        else:
-            return self.states[dialog_ID][turn_id - 1]
+        return {} if turn_id == 0 else self.states[dialog_ID][turn_id - 1]
